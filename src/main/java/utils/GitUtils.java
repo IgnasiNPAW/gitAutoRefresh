@@ -1,9 +1,6 @@
 package utils;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -56,21 +53,50 @@ public class GitUtils {
         runCommand(directory, "git", "gc");
     }
 
-    public static void runCommand(Path directory, String... command) throws IOException, InterruptedException {
+    public static String gitPull(Path directory) throws IOException, InterruptedException {
+        return runCommand(directory, "git", "pull");
+    }
+
+    public static String gitBranch(Path directory) throws IOException, InterruptedException {
+        return runCommand(directory, "git","branch");
+    }
+
+    public static String gitCheckout(Path directory, String branchName) throws IOException, InterruptedException {
+        return runCommand(directory, "git","checkout", branchName);
+    }
+
+    public static String gitStatus(Path directory) throws IOException, InterruptedException {
+        return runCommand(directory,"git","status");
+    }
+
+    private static String runCommand(Path directory, String... command) throws IOException, InterruptedException {
+
+        StringBuilder response = new StringBuilder();
         ProcessBuilder pb = new ProcessBuilder()
                 .command(command)
                 .directory(directory.toFile());
         Process p = pb.start();
+
+        InputStreamReader isr = new InputStreamReader(p.getInputStream());
+        BufferedReader br = new BufferedReader(isr);
+        String line;
+        while ( (line = br.readLine()) != null) {
+            response.append(line);
+        }
+
         StreamGobbler errorGobbler = new StreamGobbler(p.getErrorStream(), "ERROR");
         StreamGobbler outputGobbler = new StreamGobbler(p.getInputStream(), "OUTPUT");
         outputGobbler.start();
         errorGobbler.start();
+
         int exit = p.waitFor();
         errorGobbler.join();
         outputGobbler.join();
         if (exit != 0) {
             throw new AssertionError(String.format("runCommand returned %d", exit));
         }
+
+        return response.toString();
     }
 
     private static class StreamGobbler extends Thread {
